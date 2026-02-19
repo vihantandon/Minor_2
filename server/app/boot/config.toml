@@ -1,0 +1,10 @@
+[DB]
+name = "olympiad_postgres"
+user = "user"
+password = "password"
+dname = "olympiad"
+port = 5432
+host = "localhost"
+
+[Redis]
+addr = "localhost:6379"
