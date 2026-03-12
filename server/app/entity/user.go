@@ -11,9 +11,9 @@ const (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"unique;not null"`
-	Email    string `gorm:"unique;not null"`
-	Password string `gorm:"unique;not null"`
-	Role     Role   `gorm:"default:0"`
-	Score    int    `gorm:"default:0"`
+	Username     string `gorm:"unique;not null"`
+	Email        string `gorm:"unique;not null"`
+	PasswordHash string `gorm:"not null"`
+	Role         Role   `gorm:"default:0"`
+	Score        int    `gorm:"default:0"`
 }
