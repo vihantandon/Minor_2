@@ -15,33 +15,43 @@ import (
 func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.Engine {
 	r := gin.Default()
 
+	// Repos
 	userRepo := repository.NewUserRepository(db)
+	questionRepo := repository.NewQuestionRepository(db)
+	contestRepo := repository.NewContestRepository(db)
+
+	// Services
 	userService := service.NewUserService(userRepo)
+	contestService := service.NewContestService(contestRepo, questionRepo)
+
+	// Handlers
 	userHandler := handler.NewUserHandler(userService, userRepo)
+	contestHandler := handler.NewContestHandler(contestService)
 
 	api := r.Group("/api")
 
-	// Auth routes
-
+	// Auth routes (public)
 	auth := api.Group("/auth")
 	{
-		auth.POST("/register", userHandler.Register) // ceates account
-
-		auth.POST("/login", userHandler.Login) // Login user
-
+		auth.POST("/register", userHandler.Register)
+		auth.POST("/login", userHandler.Login)
 	}
 
-	// Admin routes
+	// Public contest routes
+	contests := api.Group("/contests")
+	{
+		contests.GET("", contestHandler.List)
+		contests.GET("/:id", contestHandler.Get)
+	}
 
+	// Admin routes (JWT + admin role required)
 	admin := api.Group("/admin")
 	admin.Use(middleware.AuthRequired(), middleware.AdminOnly())
-
 	{
-		// admin.POST("/questions", questionHandler.Create) fir future use
+		admin.POST("/contests", contestHandler.Create)
+		admin.POST("/contests/:id/questions", contestHandler.AssignQuestions)
 	}
 
 	sugar.Infof("Router initialized")
-
 	return r
-
 }
