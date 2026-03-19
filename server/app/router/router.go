@@ -7,11 +7,12 @@ import (
 	"olympiad/app/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-func SetupRoutes(db *gorm.DB, sugar *zap.SugaredLogger) *gin.Engine {
+func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.Engine {
 	r := gin.Default()
 
 	userRepo := repository.NewUserRepository(db)

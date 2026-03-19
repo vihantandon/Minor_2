@@ -24,7 +24,7 @@ func NewUserHandler(svc *service.UserService, repo *repository.UserRepository) *
 
 // POST /api.auth.register
 func (h *UserHandler) Register(c *gin.Context) {
-	var req *dto.RegisterRequest //creates empty container
+	var req *dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -35,16 +35,15 @@ func (h *UserHandler) Register(c *gin.Context) {
 		switch {
 		case errors.Is(err, service.ErrEmailTaken):
 			c.JSON(http.StatusConflict, gin.H{"error": "Email already taken"})
-
 		case errors.Is(err, service.ErrUsernameTaken):
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "registration failed"})
-			return
 		}
-
-		c.JSON(http.StatusCreated, resp)
+		return
 	}
+
+	c.JSON(http.StatusCreated, resp)
 }
 
 // POST /api/auth/login

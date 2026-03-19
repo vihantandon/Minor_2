@@ -19,11 +19,10 @@ var (
 	ErrUserNotFound  = errors.New("User not found")
 )
 
-//JWT Claims
-
+// JWT Claims
 type Claims struct {
-	UserID uint `json:"user_id"`
-	Role   int  `json:"role"`
+	UserID uint        `json:"user_id"`
+	Role   entity.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -106,8 +105,8 @@ func (s *UserService) Login(req *dto.LoginRequest) (*dto.AuthResponse, error) {
 //Helper
 
 func generateJWT(user *entity.User) (string, error) {
-	secret := viper.GetString("jwt_secret")
-	expHours := viper.GetInt("jwt_expiry_hours")
+	secret := viper.GetString("jwt.secret")
+	expHours := viper.GetInt("jwt.expiry_hours")
 
 	if expHours == 0 {
 		expHours = 72
@@ -115,7 +114,7 @@ func generateJWT(user *entity.User) (string, error) {
 
 	claims := &Claims{
 		UserID: user.ID,
-		Role:   int(user.Role),
+		Role:   user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
