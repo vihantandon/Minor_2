@@ -20,7 +20,7 @@ func Initialize_App() *zap.SugaredLogger {
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
-	viper.AddConfigPath("./boot")
+	viper.AddConfigPath("./app/boot")
 
 	err = viper.ReadInConfig()
 	if err != nil {

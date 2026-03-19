@@ -28,6 +28,10 @@ func InitializeDB(sugar *zap.SugaredLogger) *gorm.DB {
 	if err := db.AutoMigrate(
 		&entity.User{},
 		&entity.QnA{},
+		&entity.QnAOption{},
+		&entity.Contest{},
+		&entity.ContestQuestion{},
+		&entity.Submission{},
 	); err != nil {
 		sugar.Fatalf("AutoMigrate failed: %v", err)
 	}

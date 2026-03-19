@@ -10,7 +10,7 @@ const (
 	PENDING
 )
 
-type submission struct {
+type Submission struct {
 	gorm.Model
 	UserID     uint
 	User       User

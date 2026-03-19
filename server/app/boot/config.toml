@@ -2,10 +2,9 @@
 port = "8080"
 
 [database]
-name = "olympiad_postgres"
+name = "olympiad"
 user = "user"
 password = "password"
-dname = "olympiad"
 port = 5432
 host = "localhost"
 
