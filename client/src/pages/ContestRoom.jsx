@@ -14,39 +14,56 @@ function useTimer(secs) {
 }
 
 export default function ContestRoom() {
-  export default function ContestRoom() {
-    const { id } = useParams();
-    const [contest, setContest] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [sel, setSel]     = useState(0);
-    const [ans, setAns]     = useState({});
-    const [sub, setSub]     = useState({});
-    const [input, setInput] = useState("");
-    const [tab, setTab]     = useState("problem");
-    const timer = useTimer(45 * 60);
+  const { id } = useParams();
+  const [contest, setContest] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState(0);
+  const [ans, setAns] = useState({});
+  const [sub, setSub] = useState({});
+  const [input, setInput] = useState("");
+  const [tab, setTab] = useState("problem");
+  const timer = useTimer(45 * 60);
 
-    useEffect(() => {
-      getContest(id)
-        .then(({ data }) => setContest(data))
-        .catch(console.error)
-        .finally(() => setLoading(false));
-    }, [id]);
+  useEffect(() => {
+    getContest(id)
+      .then(({ data }) => setContest(data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
 
-    if (loading) return (
-      <div style={{ position: "relative", zIndex: 1, padding: 40, fontFamily: "'Space Mono',monospace", color: "var(--text-3)" }}>
+  if (loading)
+    return (
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          padding: 40,
+          fontFamily: "'Space Mono',monospace",
+          color: "var(--text-3)",
+        }}
+      >
         // LOADING CONTEST...
       </div>
     );
 
-    if (!contest) return (
-      <div style={{ position: "relative", zIndex: 1, padding: 40, fontFamily: "'Space Mono',monospace", color: "var(--red)" }}>
+  if (!contest)
+    return (
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          padding: 40,
+          fontFamily: "'Space Mono',monospace",
+          color: "var(--red)",
+        }}
+      >
         // CONTEST NOT FOUND
       </div>
     );
 
-    const QS = contest.questions || [];
-    const q = QS[sel];
-    const urgent = parseInt(timer.split(":")[0]) < 10;
+  const QS = contest.questions || [];
+  const q = QS[sel];
+  const urgent = parseInt(timer.split(":")[0]) < 10;
 
   const handleSub = () => {
     if (!input.trim()) return;
