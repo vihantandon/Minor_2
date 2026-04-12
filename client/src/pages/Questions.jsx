@@ -200,13 +200,13 @@ export default function Questions() {
               val: subject,
               set: setSubject,
               opts: ["All", "Mathematics", "Chemistry"],
-              prefix: "SUBJ",
+              label: "SUBJ",
             },
             {
               val: diff,
               set: setDiff,
               opts: ["All", "Easy", "Medium", "Hard"],
-              prefix: "DIFF",
+              label: "DIFF",
             },
           ].map((f, i) => (
             <select
@@ -217,9 +217,9 @@ export default function Questions() {
               style={{ width: "auto", paddingLeft: 12 }}
             >
               {f.opts.map((o) => (
-                <option key={o}>
-                  {f.prefix}: {o}
-                </option>
+                <option key={o} value={o}>
+                  {f.label}: {o}
+                </option> // value=o not "LABEL: o"
               ))}
             </select>
           ))}
@@ -240,7 +240,6 @@ export default function Questions() {
               onClick={() => setTopic(t)}
               style={{
                 padding: "5px 14px",
-                background: "none",
                 cursor: "pointer",
                 fontFamily: "'Space Mono', monospace",
                 fontSize: "0.65rem",

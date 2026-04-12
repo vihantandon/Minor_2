@@ -166,44 +166,57 @@ export default function Navbar() {
             </button>
 
             {/* Rating */}
-            <div
-              style={{
-                fontFamily: "'Space Mono', monospace",
-                fontSize: "0.7rem",
-                color: "var(--text-2)",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "4px 10px",
-                border: "1px solid var(--border-2)",
-              }}
-            >
-              <span style={{ color: "var(--text-3)" }}>ELO</span>
-              <span style={{ color: "#ff4060", fontWeight: 700 }}>3200</span>
-            </div>
-
-            {/* Avatar */}
-            <Link to="/profile">
-              <div
-                style={{
-                  width: 34,
-                  height: 34,
-                  background: "var(--teal)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Space Mono', monospace",
-                  fontWeight: 700,
-                  fontSize: "0.7rem",
-                  color: "var(--black)",
-                  cursor: "pointer",
-                  clipPath:
-                    "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
-                }}
-              >
-                KW
-              </div>
-            </Link>
+            {user ? (
+              <>
+                <div
+                  style={{
+                    fontFamily: "'Space Mono', monospace",
+                    fontSize: "0.7rem",
+                    color: "var(--text-2)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    border: "1px solid var(--border-2)",
+                  }}
+                >
+                  <span style={{ color: "var(--text-3)" }}>ELO</span>
+                  <span style={{ color: "#ff4060", fontWeight: 700 }}>
+                    {user.score ?? 1500}
+                  </span>
+                </div>
+                <Link to="/profile">
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      background: "var(--teal)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: "'Space Mono', monospace",
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                      color: "var(--black)",
+                      cursor: "pointer",
+                      clipPath:
+                        "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                    }}
+                  >
+                    {user.username.slice(0, 2).toUpperCase()}
+                  </div>
+                </Link>
+              </>
+            ) : (
+              <Link to="/login">
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: "8px 18px", fontSize: "0.68rem" }}
+                >
+                  Sign In →
+                </button>
+              </Link>
+            )}
           </div>
         </div>
       </nav>

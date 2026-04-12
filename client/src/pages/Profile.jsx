@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const HISTORY = [
   { c: "#1", r: 1500 },
@@ -182,6 +183,12 @@ function RatingGraph() {
 
 export default function Profile() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user) {
+    navigate("/login");
+    return null;
+  }
   const STATS = [
     { label: "ELO Rating", val: user.rating, color: "#ff4060" },
     { label: "Questions Solved", val: 847, color: "var(--teal)" },

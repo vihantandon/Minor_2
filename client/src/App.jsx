@@ -55,17 +55,6 @@ export default function App() {
   const [theme, setTheme] = useState(
     () => localStorage.getItem("oh-theme") || "dark",
   );
-  const [user] = useState({
-    id: 1,
-    username: "Krish Wadhwa",
-    email: "krish@olympiad.com",
-    rating: 3200,
-    avatar: "KW",
-    role: "user",
-    questionsSolved: 847,
-    contestsPlayed: 63,
-    rank: 4,
-  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
