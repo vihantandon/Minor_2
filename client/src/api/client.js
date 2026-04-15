@@ -1,6 +1,13 @@
 import axios from "axios";
 
-const client = axios.create({ baseURL: "/api" });
+// const client = axios.create({ baseURL: "/api" });
+
+const client = axios.create({
+  baseURL: "http://localhost:8080",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 // Attach token to every request if present
 client.interceptors.request.use((config) => {

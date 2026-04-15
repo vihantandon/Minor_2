@@ -1,11 +1,16 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"olympiad/app/dto"
 	"olympiad/app/entity"
 	"olympiad/app/repository"
+	"strconv"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -17,15 +22,18 @@ var (
 type ContestService struct {
 	contestRepo  *repository.ContestRepository
 	questionRepo *repository.QuestionRepository
+	rdb          *redis.Client
 }
 
 func NewContestService(
 	contestRepo *repository.ContestRepository,
 	questionRepo *repository.QuestionRepository,
+	rdb *redis.Client,
 ) *ContestService {
 	return &ContestService{
 		contestRepo:  contestRepo,
 		questionRepo: questionRepo,
+		rdb:          rdb,
 	}
 }
 
@@ -166,6 +174,45 @@ func (s *ContestService) UpdateContestStatuses() error {
 		}
 		if newStatus != c.Status {
 			_ = s.contestRepo.UpdateStatus(c.ID, newStatus)
+		}
+	}
+	return nil
+}
+
+func (s *ContestService) CacheUpcomingContests() error {
+	ctx := context.Background()
+	now := time.Now()
+
+	contests, err := s.contestRepo.FindAll()
+	if err != nil {
+		return err
+	}
+
+	for _, c := range contests {
+		if c.Status == entity.SCHEDULED {
+			timeUntilStart := c.StartsAt.Sub(now)
+
+			if timeUntilStart > 0 && timeUntilStart <= 5*time.Minute {
+
+				cacheKey := "contest_cache:" + strconv.Itoa(int(c.ID))
+				exists, err := s.rdb.Exists(ctx, cacheKey).Result()
+				if err == nil && exists > 0 {
+					continue
+				}
+
+				contestDTO, err := s.GetContest(c.ID)
+				if err != nil {
+					continue
+				}
+
+				contestJSON, err := json.Marshal(contestDTO)
+				if err != nil {
+					continue
+				}
+
+				ttl := c.EndsAt.Sub(now) + (1 * time.Hour)
+				s.rdb.Set(ctx, cacheKey, contestJSON, ttl)
+			}
 		}
 	}
 	return nil

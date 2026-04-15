@@ -23,3 +23,12 @@ func (r *QuestionRepository) FindByID(id uint) (*entity.QnA, error) {
 	}
 	return &q, result.Error
 }
+
+func (r *QuestionRepository) FindAll(limit int, offset int) ([]entity.QnA, error) {
+	var questions []entity.QnA
+	result := r.db.Limit(limit).Offset(offset).Find(&questions)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return questions, nil
+}

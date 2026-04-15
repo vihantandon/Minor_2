@@ -18,11 +18,12 @@ func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.
 	// Repos
 	userRepo := repository.NewUserRepository(db)
 	questionRepo := repository.NewQuestionRepository(db)
+	questionHandler := handler.NewQuestionHandler(questionRepo)
 	contestRepo := repository.NewContestRepository(db)
 
 	// Services
 	userService := service.NewUserService(userRepo)
-	contestService := service.NewContestService(contestRepo, questionRepo)
+	contestService := service.NewContestService(contestRepo, questionRepo, rdb)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService, userRepo)
@@ -50,6 +51,11 @@ func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.
 	{
 		admin.POST("/contests", contestHandler.Create)
 		admin.POST("/contests/:id/questions", contestHandler.AssignQuestions)
+	}
+
+	questions := api.Group("/questions")
+	{
+		questions.GET("", questionHandler.List)
 	}
 
 	sugar.Infof("Router initialized")
