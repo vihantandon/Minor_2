@@ -5,7 +5,9 @@ import (
 	"olympiad/app/middleware"
 	"olympiad/app/repository"
 	"olympiad/app/service"
+	"time" // Needed for the MaxAge config
 
+	"github.com/gin-contrib/cors" // Added CORS import
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -14,6 +16,15 @@ import (
 
 func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.Engine {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Repos
 	userRepo := repository.NewUserRepository(db)

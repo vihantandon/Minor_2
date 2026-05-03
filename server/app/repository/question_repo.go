@@ -32,3 +32,12 @@ func (r *QuestionRepository) FindAll(limit int, offset int) ([]entity.QnA, error
 	}
 	return questions, nil
 }
+
+func (r *QuestionRepository) List(limit int) ([]entity.QnA, error) {
+	var questions []entity.QnA
+
+	// Order by RANDOM() to get a shuffled mix of difficulties
+	err := r.db.Order("RANDOM()").Limit(limit).Find(&questions).Error
+
+	return questions, err
+}
