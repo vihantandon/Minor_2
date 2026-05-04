@@ -307,7 +307,9 @@ export default function ContestRoom() {
                     Q{sel + 1}
                   </span>
                   <span className="tag" style={{ fontSize: "0.6rem" }}>
-                    {q.topic.toUpperCase()}
+                    {(question.Topic || question.topic || "Math")
+                      .slice(0, 4)
+                      .toUpperCase()}
                   </span>
                   <span
                     className={`tag ${diffCls(q.difficulty)}`}

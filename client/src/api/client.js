@@ -23,5 +23,5 @@ export const register = (data) => client.post("/auth/register", data);
 export const login = (data) => client.post("/auth/login", data);
 
 // Contests
-export const listContests = () => client.get("/contests");
-export const getContest = (id) => client.get(`/contests/${id}`);
+export const listContests = () => client.get("/api/contests");
+export const getContest = (id) => client.get(`/api/contests/${id}`);
