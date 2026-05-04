@@ -17,8 +17,8 @@ client.interceptors.request.use((config) => {
 export default client;
 
 // Auth
-export const register = (data) => client.post("/auth/register", data);
-export const login = (data) => client.post("/auth/login", data);
+export const register = (data) => client.post("/api/auth/register", data);
+export const login = (data) => client.post("/api/auth/login", data);
 
 // Contests
 export const listContests = () => client.get("/api/contests");
