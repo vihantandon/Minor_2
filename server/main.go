@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"olympiad/app/boot"
+	"olympiad/app/entity"
 	"olympiad/app/repository"
 	"olympiad/app/router"
 	"olympiad/app/seeder"
@@ -11,18 +12,34 @@ import (
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
-func runScheduler(contestService *service.ContestService, sugar *zap.SugaredLogger) {
-	ticker := time.NewTicker(1 * time.Minute)
+func runSchedulers(
+	db *gorm.DB,
+	contestService *service.ContestService,
+	ratingService *service.RatingService,
+	sugar *zap.SugaredLogger,
+) {
+	// Tick every minute: update contest statuses + cache upcoming contests
+	contestTicker := time.NewTicker(1 * time.Minute)
 	go func() {
-		for range ticker.C {
+		for range contestTicker.C {
 			if err := contestService.UpdateContestStatuses(); err != nil {
-				sugar.Errorf("Failed to update contest statuses: %v", err)
+				sugar.Errorf("scheduler: UpdateContestStatuses: %v", err)
 			}
-
 			if err := contestService.CacheUpcomingContests(); err != nil {
-				sugar.Errorf("Failed to cache upcoming contests: %v", err)
+				sugar.Errorf("scheduler: CacheUpcomingContests: %v", err)
+			}
+		}
+	}()
+
+	// Tick every 15 minutes: recalculate ratings for all live contests
+	ratingTicker := time.NewTicker(15 * time.Minute)
+	go func() {
+		for range ratingTicker.C {
+			if err := ratingService.ProcessLiveContests(); err != nil {
+				sugar.Errorf("scheduler: ProcessLiveContests: %v", err)
 			}
 		}
 	}()
@@ -42,11 +59,28 @@ func main() {
 		}
 	}
 
+	// Repos
 	contestRepo := repository.NewContestRepository(db)
 	questionRepo := repository.NewQuestionRepository(db)
-	contestService := service.NewContestService(contestRepo, questionRepo, rdb)
+	userRepo := repository.NewUserRepository(db)
+	submissionRepo := repository.NewSubmissionRepository(db)
 
-	runScheduler(contestService, sugar)
+	// Services
+	contestService := service.NewContestService(contestRepo, questionRepo, rdb)
+	ratingService := service.NewRatingService(submissionRepo, userRepo, contestRepo, rdb, sugar)
+
+	// Sync contest statuses immediately on boot — don't wait for first scheduler tick
+	if err := contestService.UpdateContestStatuses(); err != nil {
+		sugar.Errorf("boot: UpdateContestStatuses: %v", err)
+	}
+	sugar.Infof("boot: contest statuses synced")
+
+	// AutoMigrate the updated Submission entity
+	if err := db.AutoMigrate(&entity.Submission{}); err != nil {
+		sugar.Fatalf("boot: AutoMigrate Submission failed: %v", err)
+	}
+
+	runSchedulers(db, contestService, ratingService, sugar)
 
 	r := router.SetupRoutes(db, rdb, sugar)
 	r.Run(":" + viper.GetString("server.port"))

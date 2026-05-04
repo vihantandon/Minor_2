@@ -5,9 +5,9 @@ import (
 	"olympiad/app/middleware"
 	"olympiad/app/repository"
 	"olympiad/app/service"
-	"time" // Needed for the MaxAge config
+	"time"
 
-	"github.com/gin-contrib/cors" // Added CORS import
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -29,20 +29,23 @@ func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.
 	// Repos
 	userRepo := repository.NewUserRepository(db)
 	questionRepo := repository.NewQuestionRepository(db)
-	questionHandler := handler.NewQuestionHandler(questionRepo)
 	contestRepo := repository.NewContestRepository(db)
+	submissionRepo := repository.NewSubmissionRepository(db)
 
 	// Services
 	userService := service.NewUserService(userRepo)
 	contestService := service.NewContestService(contestRepo, questionRepo, rdb)
+	submissionService := service.NewSubmissionService(submissionRepo, contestRepo, questionRepo)
 
 	// Handlers
 	userHandler := handler.NewUserHandler(userService, userRepo)
 	contestHandler := handler.NewContestHandler(contestService)
+	questionHandler := handler.NewQuestionHandler(questionRepo)
+	submissionHandler := handler.NewSubmissionHandler(submissionService, userRepo)
 
 	api := r.Group("/api")
 
-	// Auth routes (public)
+	// Auth (public)
 	auth := api.Group("/auth")
 	{
 		auth.POST("/register", userHandler.Register)
@@ -56,17 +59,32 @@ func SetupRoutes(db *gorm.DB, rdb *redis.Client, sugar *zap.SugaredLogger) *gin.
 		contests.GET("/:id", contestHandler.Get)
 	}
 
-	// Admin routes (JWT + admin role required)
+	// Protected contest routes (JWT required)
+	contestsAuth := api.Group("/contests")
+	contestsAuth.Use(middleware.AuthRequired())
+	{
+		contestsAuth.POST("/:id/submit", submissionHandler.Submit)
+	}
+
+	// User routes (JWT required)
+	users := api.Group("/users")
+	users.Use(middleware.AuthRequired())
+	{
+		users.GET("/me", submissionHandler.Me)
+	}
+
+	// Questions (public)
+	questions := api.Group("/questions")
+	{
+		questions.GET("", questionHandler.List)
+	}
+
+	// Admin routes (JWT + admin role)
 	admin := api.Group("/admin")
 	admin.Use(middleware.AuthRequired(), middleware.AdminOnly())
 	{
 		admin.POST("/contests", contestHandler.Create)
 		admin.POST("/contests/:id/questions", contestHandler.AssignQuestions)
-	}
-
-	questions := api.Group("/questions")
-	{
-		questions.GET("", questionHandler.List)
 	}
 
 	sugar.Infof("Router initialized")

@@ -20,9 +20,9 @@ const HISTORY = [
 ];
 
 const WEAK = [
-  { topic: "Combinatorics", score: 38 },
-  { topic: "Electrochemistry", score: 52 },
-  { topic: "Projective Geometry", score: 61 },
+  { topic: "Precalculus", score: 38 },
+  { topic: "Number Theory", score: 52 },
+  { topic: "Algebra", score: 61 },
 ];
 
 const RECENT = [
@@ -189,8 +189,10 @@ export default function Profile() {
     navigate("/login");
     return null;
   }
+
+  // user.score is the field returned by UserInfoDTO — not user.rating
   const STATS = [
-    { label: "ELO Rating", val: user.rating, color: "#ff4060" },
+    { label: "ELO Rating", val: user.score ?? 0, color: "#ff4060" },
     { label: "Questions Solved", val: 847, color: "var(--teal)" },
     { label: "Contests", val: 63, color: "var(--gold)" },
     { label: "Global Rank", val: "#4", color: "var(--green)" },
@@ -228,7 +230,7 @@ export default function Profile() {
                 color: "var(--black)",
               }}
             >
-              KW
+              {user.username.slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div
@@ -262,7 +264,7 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Stat boxes — We Cargo style */}
+          {/* Stat boxes */}
           <div
             style={{
               display: "flex",
@@ -327,7 +329,8 @@ export default function Profile() {
                 color: "var(--text-3)",
               }}
             >
-              CURRENT: <span style={{ color: "#ff4060" }}>3200</span>
+              CURRENT:{" "}
+              <span style={{ color: "#ff4060" }}>{user.score ?? 0}</span>
             </span>
           </div>
           <div

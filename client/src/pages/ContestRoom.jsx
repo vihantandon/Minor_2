@@ -1,35 +1,113 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { getContest } from "../api/client";
+import { useParams, useNavigate } from "react-router-dom";
+import { getContest, submitAnswer } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
-function useTimer(secs) {
-  const [left, setLeft] = useState(secs);
+// Counts down to a target UTC timestamp (ISO string).
+// Returns "MM:SS" string. Returns "00:00" when expired.
+function useContestTimer(endsAt) {
+  const calcLeft = () => {
+    if (!endsAt) return 0;
+    return Math.max(0, Math.floor((new Date(endsAt) - Date.now()) / 1000));
+  };
+
+  const [left, setLeft] = useState(calcLeft);
+
   useEffect(() => {
-    const id = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
+    if (!endsAt) return;
+    const id = setInterval(() => {
+      const remaining = calcLeft();
+      setLeft(remaining);
+      if (remaining === 0) clearInterval(id);
+    }, 1000);
     return () => clearInterval(id);
-  }, []);
-  const m = Math.floor(left / 60),
-    s = left % 60;
+  }, [endsAt]);
+
+  const m = Math.floor(left / 60);
+  const s = left % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// Stub leaderboard — replace with real API data when endpoint is ready
+const LB_STUB = [
+  {
+    rank: 1,
+    name: "Krish Wadhwa",
+    solved: 7,
+    time: "38:14",
+    delta: "+150",
+    you: false,
+  },
+  {
+    rank: 2,
+    name: "Aanya Sharma",
+    solved: 6,
+    time: "41:02",
+    delta: "+110",
+    you: false,
+  },
+  {
+    rank: 3,
+    name: "Rohan Mehta",
+    solved: 6,
+    time: "44:55",
+    delta: "+95",
+    you: false,
+  },
+  {
+    rank: 4,
+    name: "Priya Nair",
+    solved: 5,
+    time: "39:30",
+    delta: "+80",
+    you: true,
+  },
+  {
+    rank: 5,
+    name: "Vikram Singh",
+    solved: 4,
+    time: "42:18",
+    delta: "+60",
+    you: false,
+  },
+];
+
 export default function ContestRoom() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [contest, setContest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(0);
-  const [ans, setAns] = useState({});
-  const [sub, setSub] = useState({});
+  const [ans, setAns] = useState({}); // { questionIndex: lastAnswerText }
+  const [sub, setSub] = useState({}); // { questionIndex: true } once submitted
   const [input, setInput] = useState("");
   const [tab, setTab] = useState("problem");
-  const timer = useTimer(45 * 60);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     getContest(id)
       .then(({ data }) => setContest(data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  const timer = useContestTimer(contest?.ends_at);
+  const urgent = contest
+    ? (() => {
+        const secsLeft = Math.max(
+          0,
+          Math.floor((new Date(contest.ends_at) - Date.now()) / 1000),
+        );
+        return secsLeft < 600; // < 10 minutes
+      })()
+    : false;
 
   if (loading)
     return (
@@ -62,18 +140,38 @@ export default function ContestRoom() {
     );
 
   const QS = contest.questions || [];
-  const q = QS[sel];
-  const urgent = parseInt(timer.split(":")[0]) < 10;
-
-  const handleSub = () => {
-    if (!input.trim()) return;
-    setSub((s) => ({ ...s, [sel]: input }));
-    setAns((a) => ({ ...a, [sel]: input }));
-    setInput("");
-  };
+  const q = QS[sel]; // ContestQuestionDTO
 
   const diffCls = (d) =>
-    d < 1300 ? "tag-green" : d < 1800 ? "tag-gold" : "tag-red";
+    d === 0 ? "tag-green" : d === 1 ? "tag-gold" : "tag-red";
+  const diffLabel = (d) => (d === 0 ? "Easy" : d === 1 ? "Medium" : "Hard");
+
+  const handleSub = async () => {
+    if (!input.trim() || submitting) return;
+
+    setSubmitting(true);
+    try {
+      await submitAnswer(id, q.question_id, input.trim());
+      // Store the submitted answer locally so the textarea shows it
+      setAns((a) => ({ ...a, [sel]: input }));
+      setSub((s) => ({ ...s, [sel]: true }));
+      setInput("");
+      // No success toast — users are not told if they're right or wrong
+    } catch (err) {
+      const msg = err.response?.data?.error || "Submission failed";
+      toast.error(`// ${msg.toUpperCase()}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Allow resubmission: clicking a submitted question re-enables the textarea
+  const handleQuestionSelect = (i) => {
+    setSel(i);
+    setInput(ans[i] || "");
+    // Allow editing/resubmitting even if previously submitted
+    setSub((s) => ({ ...s, [i]: false }));
+  };
 
   return (
     <div
@@ -107,7 +205,7 @@ export default function ContestRoom() {
               letterSpacing: "0.06em",
             }}
           >
-            OLYMPIAD SPRINT #47
+            {contest.title}
           </span>
           <span
             style={{
@@ -117,7 +215,7 @@ export default function ContestRoom() {
               color: "var(--text-3)",
             }}
           >
-            342 PARTICIPANTS
+            {QS.length} PROBLEMS
           </span>
         </div>
         <div
@@ -136,14 +234,11 @@ export default function ContestRoom() {
           {timer}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <span
-            className={`tag ${Object.keys(sub).length === QS.length ? "tag-teal" : ""}`}
-            style={{ fontSize: "0.62rem" }}
-          >
-            {Object.keys(sub).length}/{QS.length} SOLVED
+          <span className="tag" style={{ fontSize: "0.62rem" }}>
+            {Object.keys(ans).length}/{QS.length} ATTEMPTED
           </span>
           <span className="tag tag-gold" style={{ fontSize: "0.62rem" }}>
-            RANK #1
+            RANK #—
           </span>
         </div>
       </div>
@@ -172,13 +267,10 @@ export default function ContestRoom() {
           >
             // PROBLEMS
           </div>
-          {QS.map((q, i) => (
+          {QS.map((cq, i) => (
             <button
               key={i}
-              onClick={() => {
-                setSel(i);
-                setInput(ans[i] || "");
-              }}
+              onClick={() => handleQuestionSelect(i)}
               style={{
                 display: "block",
                 width: "100%",
@@ -186,11 +278,11 @@ export default function ContestRoom() {
                 background:
                   sel === i
                     ? "var(--teal-dim)"
-                    : sub[i]
+                    : ans[i]
                       ? "rgba(0,255,200,0.04)"
                       : "transparent",
                 border: "none",
-                borderLeft: `2px solid ${sel === i ? "var(--teal)" : sub[i] ? "rgba(0,255,200,0.3)" : "transparent"}`,
+                borderLeft: `2px solid ${sel === i ? "var(--teal)" : ans[i] ? "rgba(0,255,200,0.3)" : "transparent"}`,
                 cursor: "pointer",
                 textAlign: "left",
                 transition: "all .15s",
@@ -204,12 +296,12 @@ export default function ContestRoom() {
                   color:
                     sel === i
                       ? "var(--teal)"
-                      : sub[i]
+                      : ans[i]
                         ? "rgba(0,255,200,0.7)"
                         : "var(--text-2)",
                 }}
               >
-                Q{i + 1} {sub[i] ? "✓" : ""}
+                Q{i + 1} {ans[i] ? "✓" : ""}
               </div>
               <div
                 style={{
@@ -219,15 +311,15 @@ export default function ContestRoom() {
                   marginTop: 2,
                 }}
               >
-                {q.difficulty}
+                {diffLabel(cq.question?.difficulty)}
               </div>
             </button>
           ))}
         </div>
 
-        {/* Main */}
+        {/* Main panel */}
         <div style={{ flex: 1, overflow: "auto", padding: "24px 32px" }}>
-          {/* View tabs */}
+          {/* Tabs */}
           <div
             style={{
               display: "flex",
@@ -264,145 +356,163 @@ export default function ContestRoom() {
           </div>
 
           {tab === "problem" ? (
-            <>
-              {/* Problem card */}
-              <div
-                style={{
-                  border: "1px solid var(--border-2)",
-                  padding: "28px",
-                  marginBottom: 20,
-                  background: "var(--dark)",
-                  position: "relative",
-                }}
-              >
+            q ? (
+              <>
+                {/* Problem card */}
                 <div
                   style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: 24,
-                    height: 1,
-                    background: "var(--teal)",
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: 1,
-                    height: 24,
-                    background: "var(--teal)",
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    marginBottom: 16,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span className="tag tag-teal" style={{ fontSize: "0.6rem" }}>
-                    Q{sel + 1}
-                  </span>
-                  <span className="tag" style={{ fontSize: "0.6rem" }}>
-                    {(question.Topic || question.topic || "Math")
-                      .slice(0, 4)
-                      .toUpperCase()}
-                  </span>
-                  <span
-                    className={`tag ${diffCls(q.difficulty)}`}
-                    style={{ fontSize: "0.6rem" }}
-                  >
-                    {q.difficulty}
-                  </span>
-                </div>
-                <h2
-                  style={{
-                    fontFamily: "'Bebas Neue',sans-serif",
-                    fontSize: "1.5rem",
-                    letterSpacing: "0.04em",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {q.title}
-                </h2>
-              </div>
-
-              {/* Answer */}
-              <div
-                style={{
-                  border: "1px solid var(--border-2)",
-                  padding: "24px",
-                  background: "var(--dark)",
-                }}
-              >
-                <label
-                  style={{
-                    fontFamily: "'Space Mono',monospace",
-                    fontSize: "0.62rem",
-                    color: "var(--text-3)",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    display: "block",
-                    marginBottom: 10,
-                  }}
-                >
-                  // Your Answer
-                </label>
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Write your solution or answer..."
-                  rows={5}
-                  disabled={!!sub[sel]}
-                  style={{
-                    width: "100%",
-                    padding: "14px",
-                    background: "var(--dark-2)",
                     border: "1px solid var(--border-2)",
-                    color: "var(--text)",
-                    fontFamily: "'Space Mono',monospace",
-                    fontSize: "0.78rem",
-                    outline: "none",
-                    resize: "vertical",
-                    lineHeight: 1.6,
-                    opacity: sub[sel] ? 0.5 : 1,
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 14,
+                    padding: "28px",
+                    marginBottom: 20,
+                    background: "var(--dark)",
+                    position: "relative",
                   }}
                 >
-                  <span
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: 24,
+                      height: 1,
+                      background: "var(--teal)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: 1,
+                      height: 24,
+                      background: "var(--teal)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginBottom: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span
+                      className="tag tag-teal"
+                      style={{ fontSize: "0.6rem" }}
+                    >
+                      Q{sel + 1}
+                    </span>
+                    <span className="tag" style={{ fontSize: "0.6rem" }}>
+                      {(q.question?.topic || "General")
+                        .slice(0, 4)
+                        .toUpperCase()}
+                    </span>
+                    <span
+                      className={`tag ${diffCls(q.question?.difficulty)}`}
+                      style={{ fontSize: "0.6rem" }}
+                    >
+                      {diffLabel(q.question?.difficulty)}
+                    </span>
+                    <span className="tag" style={{ fontSize: "0.6rem" }}>
+                      {q.max_score} PTS
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: "0.92rem",
+                      lineHeight: 1.75,
+                      color: "var(--text-2)",
+                    }}
+                  >
+                    {q.question?.question || "No problem statement available."}
+                  </p>
+                </div>
+
+                {/* Answer input */}
+                <div
+                  style={{
+                    border: "1px solid var(--border-2)",
+                    padding: "24px",
+                    background: "var(--dark)",
+                  }}
+                >
+                  <label
                     style={{
                       fontFamily: "'Space Mono',monospace",
                       fontSize: "0.62rem",
-                      color: sub[sel] ? "var(--teal)" : "var(--text-3)",
+                      color: "var(--text-3)",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      display: "block",
+                      marginBottom: 10,
                     }}
                   >
-                    {sub[sel] ? "// SUBMITTED ✓" : "// AWAITING SUBMISSION"}
-                  </span>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSub}
-                    disabled={!!sub[sel] || !input.trim()}
+                    // Your Answer
+                  </label>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Write your answer..."
+                    rows={5}
                     style={{
-                      padding: "10px 24px",
-                      fontSize: "0.7rem",
-                      opacity: sub[sel] || !input.trim() ? 0.4 : 1,
+                      width: "100%",
+                      padding: "14px",
+                      background: "var(--dark-2)",
+                      border: "1px solid var(--border-2)",
+                      color: "var(--text)",
+                      fontFamily: "'Space Mono',monospace",
+                      fontSize: "0.78rem",
+                      outline: "none",
+                      resize: "vertical",
+                      lineHeight: 1.6,
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: 14,
                     }}
                   >
-                    {sub[sel] ? "Submitted ✓" : "Submit →"}
-                  </button>
+                    <span
+                      style={{
+                        fontFamily: "'Space Mono',monospace",
+                        fontSize: "0.62rem",
+                        color: ans[sel] ? "var(--teal)" : "var(--text-3)",
+                      }}
+                    >
+                      {ans[sel]
+                        ? `// LAST SUBMITTED: ${ans[sel].slice(0, 20)}${ans[sel].length > 20 ? "…" : ""}`
+                        : "// AWAITING SUBMISSION"}
+                    </span>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleSub}
+                      disabled={!input.trim() || submitting}
+                      style={{
+                        padding: "10px 24px",
+                        fontSize: "0.7rem",
+                        opacity: !input.trim() || submitting ? 0.4 : 1,
+                      }}
+                    >
+                      {submitting ? "// SUBMITTING..." : "Submit →"}
+                    </button>
+                  </div>
                 </div>
+              </>
+            ) : (
+              <div
+                style={{
+                  fontFamily: "'Space Mono',monospace",
+                  fontSize: "0.7rem",
+                  color: "var(--text-3)",
+                  padding: "40px 0",
+                }}
+              >
+                // NO PROBLEMS IN THIS CONTEST
               </div>
-            </>
+            )
           ) : (
             <div>
               <div
@@ -413,7 +523,6 @@ export default function ContestRoom() {
                   background: "var(--border-2)",
                 }}
               >
-                {/* Table header */}
                 <div
                   style={{
                     display: "grid",
@@ -434,7 +543,7 @@ export default function ContestRoom() {
                   <span>Time</span>
                   <span>Delta</span>
                 </div>
-                {LB.map((p, i) => (
+                {LB_STUB.map((p, i) => (
                   <div
                     key={i}
                     style={{
@@ -484,7 +593,7 @@ export default function ContestRoom() {
                         color: "var(--text-2)",
                       }}
                     >
-                      {p.solved}/8
+                      {p.solved}/{QS.length}
                     </span>
                     <span
                       style={{
